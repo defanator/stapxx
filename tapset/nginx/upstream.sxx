@@ -1,5 +1,16 @@
 // module nginx.upstream
 
+
+@use nginx.config
+
+
+function ngx_u_cycle_get_main_conf()
+{
+    return ngx_cycle_get_module_main_conf(@var("ngx_cycle", "$^exec_path"),
+               @var("ngx_http_upstream_module", "$^exec_path")->ctx_index)
+}
+
+
 function ngx_u_resp_time(u)
 {
     $*u := @cast(u, "ngx_http_upstream_t", "$^exec_path")
