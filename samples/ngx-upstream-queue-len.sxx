@@ -57,7 +57,7 @@ probe timer.profile, @pfunc(ngx_process_events_and_timers)
         s .= "\n"
 	print(s)
 
-	once_a_sec = 0
+        once_a_sec = 0
         print_header++
     }
 }
