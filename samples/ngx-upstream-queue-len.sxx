@@ -1,0 +1,73 @@
+#!/usr/bin/env stap++
+
+@use nginx.upstream
+
+@define TERMROWS %( 24 %)
+
+global once_a_sec, print_header
+
+probe timer.profile, @pfunc(ngx_process_events_and_timers)
+{
+    if (pid() == target() && once_a_sec) {
+	umcf = ngx_u_cycle_get_main_conf()
+	if (!umcf) {
+	    printf("failed to obtain upstream configuration from pid %d (%s)\n",
+                   target(), ngx_cycle_get_conf_file())
+	    exit()
+	}
+
+        $*umcf := @cast(umcf, "ngx_http_upstream_main_conf_t", "$^exec_path")
+        if ($*umcf->upstreams->nelts == 0) {
+	    printf("pid %d (%s) does not have upstreams configured\n",
+                   target(), ngx_cycle_get_conf_file())
+            exit()
+        }
+
+        /* printf("upstream configuration found for %d upstreams\n", $*umcf->upstreams->nelts) */
+
+        if (print_header == @TERMROWS) {
+            s = ""
+            for (i = 0; i < $*umcf->upstreams->nelts ; i++) {
+                uscf = user_long($*umcf->upstreams->elts + (i * 8))
+                $*uscf := @cast(uscf, "ngx_http_upstream_srv_conf_t", "$^exec_path")
+                host = user_string_n($*uscf->host->data, $*uscf->host->len)
+                s .= sprintf("%15s    ", host)
+            }
+            s .= "\n"
+            for (i = 0; i < $*umcf->upstreams->nelts ; i++) {
+                s .= sprintf("%15s    ", "maxlen   len")
+            }
+            s .= "\n"
+            print(s)
+            print_header = 0
+        }
+
+        s = ""
+        for (i = 0; i < $*umcf->upstreams->nelts ; i++) {
+            uscf = user_long($*umcf->upstreams->elts + (i * 8))
+            $*uscf := @cast(uscf, "ngx_http_upstream_srv_conf_t", "$^exec_path")
+            host = user_string_n($*uscf->host->data, $*uscf->host->len)
+
+            if ($*uscf->queue) {
+                s .= sprintf("    %5d %5d    ", $*uscf->queue->maxlen, $*uscf->queue->len)
+            } else {
+                s .= sprintf("%15s    ", "     -     -")
+            }
+        }
+        s .= "\n"
+	print(s)
+
+	once_a_sec = 0
+        print_header++
+    }
+}
+
+probe timer.s(1) {
+    once_a_sec = 1
+}
+
+probe begin {
+    once_a_sec = 1
+    print_header = @TERMROWS 
+    printf("Tracing %d ($^exec_path)\n\n", target())
+}
