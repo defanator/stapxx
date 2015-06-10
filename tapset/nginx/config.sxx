@@ -11,3 +11,11 @@ function ngx_cycle_get_module_main_conf(cycle, module_index)
     $*ctx := @cast(ctx, "ngx_http_conf_ctx_t", "$^exec_path")
     return $*ctx->main_conf[module_index]
 }
+
+
+function ngx_cycle_get_conf_file()
+{
+    $*cycle := @var("ngx_cycle@ngx_cycle.c", "$^exec_path")
+
+    return user_string_n($*cycle->conf_file->data, $*cycle->conf_file->len)
+}
